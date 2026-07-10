@@ -1,0 +1,14 @@
+# Scratch Git playgrounds created by init.sh — never commit these.
+# Each student's history is unique and lives only on their machine;
+# only the results/ folder is graded and pushed.
+repo/
+origin-bare/
+repo_challenge/
+.initialized
+.teammate_counter
+
+# OS / editor junk
+.DS_Store
+*.swp
+.vscode/
+*.zip

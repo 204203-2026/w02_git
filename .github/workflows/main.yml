@@ -1,0 +1,124 @@
+name: Grade w02_git
+
+on:
+  push:
+    branches: [main, master]
+
+jobs:
+  grade:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Step 1: results.log exists ────────────────────────
+      - name: Check results.log exists
+        run: |
+          [ -f results/results.log ] \
+            && echo "✅ results.log found" \
+            || { echo "❌ results.log missing — run bash check.sh"; exit 1; }
+
+      # ── Step 2: all 12 tasks present ──────────────────────
+      - name: Validate completeness
+        run: |
+          REQUIRED=(task1 task2 task3 task4 task5 task6 task7 task8 task9 challengeA challengeB challengeC)
+          MISSING=0
+          for t in "${REQUIRED[@]}"; do
+            grep -q "^${t}:" results/results.log \
+              && echo "  ✅ $t present" \
+              || { echo "  ❌ $t missing"; MISSING=$((MISSING+1)); }
+          done
+          [ $MISSING -eq 0 ] || { echo "❌ $MISSING task(s) missing"; exit 1; }
+
+      # ── Step 3: format valid ──────────────────────────────
+      - name: Validate format
+        run: |
+          INVALID=0
+          while IFS= read -r line; do
+            echo "$line" | grep -qE '^[A-Za-z0-9]+:(PASS|FAIL)$' \
+              || { echo "❌ Bad line: '$line'"; INVALID=$((INVALID+1)); }
+          done < results/results.log
+          [ $INVALID -eq 0 ] || { echo "❌ Invalid format in results.log"; exit 1; }
+          echo "✅ Format valid"
+
+      # NOTE: repo/, origin-bare/, and repo_challenge/ are gitignored
+      # scratch playgrounds (like w01's treasure/) — but unlike w01's
+      # static text fixtures, they hold each student's own mutated Git
+      # history and are never pushed. CI only ever sees results/*.txt,
+      # so re-verification here is content/pattern-based, mirroring the
+      # same checks check.sh already ran locally — it cannot replay the
+      # student's actual Git commands.
+
+      # ── Step 4: re-verify task1 (log shows all 3 commits, in order) ─
+      - name: Re-verify task1 (log ordering)
+        run: |
+          f=results/task1.txt
+          [ -f "$f" ] || { echo "❌ task1.txt missing"; exit 1; }
+          l1=$(grep -n "Update README$" "$f" | head -1 | cut -d: -f1)
+          l2=$(grep -n "Add data file$" "$f" | head -1 | cut -d: -f1)
+          l3=$(grep -n "Initial commit$" "$f" | head -1 | cut -d: -f1)
+          [ -n "$l1" ] && [ -n "$l2" ] && [ -n "$l3" ] && [ "$l1" -lt "$l2" ] && [ "$l2" -lt "$l3" ] \
+            && echo "✅ task1: all 3 commits present, newest first" \
+            || { echo "❌ task1: commits missing or out of order"; exit 1; }
+
+      # ── Step 5: re-verify task3 (amended message) ─────────
+      - name: Re-verify task3 (amend)
+        run: |
+          grep -q "Add hello file (Week 2 lab)" results/task3.txt \
+            && echo "✅ task3: amended message present" \
+            || { echo "❌ task3: amended message missing"; exit 1; }
+
+      # ── Step 6: re-verify task6 (real merge, not fast-forward) ────
+      - name: Re-verify task6 (--no-ff merge)
+        run: |
+          grep -q "Merge feature/greeting" results/task6.txt \
+            && grep -q "Add greeting on feature branch" results/task6.txt \
+            && echo "✅ task6: merge commit and branch tip both present" \
+            || { echo "❌ task6: merge evidence incomplete"; exit 1; }
+
+      # ── Step 7: re-verify task7 (conflict resolved, marker kept) ──
+      - name: Re-verify task7 (conflict resolution)
+        run: |
+          grep -q "Merge feature/conflict" results/task7.txt \
+            && echo "✅ task7: conflict merge recorded" \
+            || { echo "❌ task7: conflict merge not recorded"; exit 1; }
+
+      # ── Step 8: re-verify task9 (teammate commit pulled) ──
+      - name: Re-verify task9 (pull)
+        run: |
+          grep -q "Add teammate note 1" results/task9.txt \
+            && echo "✅ task9: teammate commit pulled in" \
+            || { echo "❌ task9: teammate commit missing"; exit 1; }
+
+      # ── Step 9: re-verify challengeA (reflog recovery) ────
+      - name: Re-verify challengeA (reflog recovery)
+        run: |
+          grep -q "Recoverable commit" results/challengeA.txt \
+            && echo "✅ challengeA: recovered commit recorded" \
+            || { echo "❌ challengeA: recovered commit missing"; exit 1; }
+
+      # ── Step 10: re-verify challengeB (3-file conflict) ───
+      - name: Re-verify challengeB (3-file conflict)
+        run: |
+          grep -q "Merge feature/challenge" results/challengeB.txt \
+            && echo "✅ challengeB: merge recorded" \
+            || { echo "❌ challengeB: merge not recorded"; exit 1; }
+
+      # ── Step 11: re-verify challengeC (push/pull race) ────
+      - name: Re-verify challengeC (push/pull race)
+        run: |
+          grep -q "Add teammate note 2" results/challengeC.txt \
+            && grep -q "Add feature note" results/challengeC.txt \
+            && echo "✅ challengeC: both sides present" \
+            || { echo "❌ challengeC: one side missing"; exit 1; }
+
+      # ── Step 12: final score report ────────────────────────
+      - name: Final score report
+        run: |
+          PASS=$(grep -c ":PASS" results/results.log || true)
+          echo "=============================="
+          echo "  w02_git — Final Score: $PASS / 12"
+          echo "=============================="
+          while IFS=: read -r task status; do
+            [ "$status" = "PASS" ] && echo "  ✅ $task" || echo "  ❌ $task"
+          done < results/results.log
