@@ -51,7 +51,7 @@ git log --oneline > ../results/task1.txt
 1. Create a new file:
 
 ```bash
-echo "Hello, Git\!" > hello.txt
+echo 'Hello, Git!' > hello.txt
 ```
 
 2. Check what Git thinks changed:
@@ -125,7 +125,7 @@ git branch
 3. Add a file that only exists on this branch:
 
 ```bash
-echo "Hi from a branch\!" > greeting.txt
+echo 'Hi from a branch!' > greeting.txt
 git add greeting.txt
 git commit -m "Add greeting on feature branch"
 ```
